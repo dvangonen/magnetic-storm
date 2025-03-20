@@ -4,7 +4,7 @@ interface Response {
 	coords: LngLat[];
 }
 
-async function fetchCoords(lat: number) {
+async function fetchCoords(lat: number): Promise<LngLat[]> {
 	try {
 		const response = await fetch(
 			`${import.meta.env.VITE_MAP_API}/coords?lat=${lat}`
@@ -19,7 +19,7 @@ async function fetchCoords(lat: number) {
 		return data.coords;
 	} catch (error) {
 		console.error('There was a problem with the fetch operation:', error);
-		throw error;
+		return [];
 	}
 }
 

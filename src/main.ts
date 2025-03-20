@@ -1,40 +1,44 @@
-import type { LngLat, YMapLocationRequest } from 'ymaps3';
+import type { LngLat, YMap, YMapLocationRequest } from 'ymaps3';
 import './style.css';
 import { fetchCoords } from './api/fetchCoords';
 
 /**
- * Render map with coordinates
- * @param coordinates - coordinates to render
+ * Render map on the page
  */
-async function renderMap(coordinates: LngLat[] | null): Promise<void> {
+function renderMap() {
 	const mapElement = document.getElementById('map') as HTMLElement;
 
 	if (!mapElement) {
-		return;
+		throw new Error('Map element not found');
 	}
 
-	await ymaps3.ready;
+	const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer } = ymaps3;
 
 	const LOCATION: YMapLocationRequest = {
 		center: [45, 55],
 		zoom: 4.5,
 	};
 
-	const {
-		YMap,
-		YMapDefaultSchemeLayer,
-		YMapFeature,
-		YMapDefaultFeaturesLayer,
-	} = ymaps3;
-
 	const map = new YMap(mapElement, { location: LOCATION }, [
 		new YMapDefaultSchemeLayer({}),
 		new YMapDefaultFeaturesLayer({}),
 	]);
 
-	if (!coordinates) {
+	return map;
+}
+
+/**
+ * Render polygon with coordinates on the map
+ * @param map - map to render polygon on
+ * @param coordinates - coordinates to render
+ */
+function renderCoordsPolygon(map: YMap, coordinates: LngLat[]) {
+	// If there are no coordinates, do nothing
+	if (coordinates.length === 0) {
 		return;
 	}
+
+	const { YMapFeature } = ymaps3;
 
 	const polygonFeature = new YMapFeature({
 		id: 'polygon',
@@ -54,36 +58,17 @@ async function renderMap(coordinates: LngLat[] | null): Promise<void> {
 /**
  * Get latitude from search params
  */
-function getLatitudeFromSearchParams() {
+function getLatitudeFromSearchParams(): number | null {
 	const searchParams = new URLSearchParams(window.location.search);
 	const latitude = parseFloat(searchParams?.get('lat') ?? '');
 
-	if (isNaN(latitude)) {
-		return null;
-	}
-
-	return latitude;
+	return isNaN(latitude) ? null : latitude;
 }
 
 /**
- * Initialize map with coordinates from search params
+ * Draw latitude text
  */
-async function initMap(latitude: number | null) {
-	let coords: LngLat[] | null = null;
-
-	try {
-		if (latitude !== null) {
-			coords = await fetchCoords(latitude);
-		}
-	} catch (error) {
-		console.error('There was a problem with the fetch operation:', error);
-		coords = null;
-	}
-
-	renderMap(coords);
-}
-
-function drawLatitudeText(latitude: number) {
+function drawLatitudeText(latitude: number): void {
 	const latitudeText = document.getElementById('latitude') as HTMLElement;
 
 	if (!latitudeText) {
@@ -93,14 +78,23 @@ function drawLatitudeText(latitude: number) {
 	latitudeText.innerText = `Зона активности бури: ${latitude}° геомагнитной широты`;
 }
 
-function init() {
+/**
+ * Initialize the application
+ */
+async function init(): Promise<void> {
 	const latitude = getLatitudeFromSearchParams();
+	let coordsPromise: Promise<LngLat[]> = Promise.resolve([]);
 
-	if (latitude) {
+	if (latitude !== null) {
 		drawLatitudeText(latitude);
+		coordsPromise = fetchCoords(latitude);
 	}
 
-	initMap(latitude);
+	await ymaps3.ready;
+	const map = renderMap();
+
+	const coords = await coordsPromise;
+	renderCoordsPolygon(map, coords);
 }
 
 init();
