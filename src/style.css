@@ -12,6 +12,16 @@
   height: 100vh;
 }
 
+#latitude {
+  position: absolute;
+  bottom: 6px;
+  left: 9px;
+  font-size: 18px;
+  z-index: 100;
+  background: #ffffffb0;
+  padding: 2px;
+}
+
 /* 
  * Optional: Makes the sample page fill the window. 
  */

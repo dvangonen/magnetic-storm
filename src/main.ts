@@ -1,130 +1,106 @@
-/**
- * @license
- * Copyright 2019 Google LLC. All Rights Reserved.
- * SPDX-License-Identifier: Apache-2.0
- */
-
-import { coords } from './coords';
-
-import html2canvas from 'html2canvas';
+import type { LngLat, YMapLocationRequest } from 'ymaps3';
 import './style.css';
+import { fetchCoords } from './api/fetchCoords';
 
-function removeMapElements() {
-	const selectors = [
-		'#map > div > div.gm-style > div:nth-child(8) > button',
-		'#map > div > div.gm-style > div:nth-child(13) > div > gmp-internal-camera-control',
-		'#map > div > div.gm-style > div:nth-child(4) > div',
-		'#map > div > div.gm-style > div:nth-child(13) > div > button',
-	];
+/**
+ * Render map with coordinates
+ * @param coordinates - coordinates to render
+ */
+async function renderMap(coordinates: LngLat[] | null): Promise<void> {
+	const mapElement = document.getElementById('map') as HTMLElement;
 
-	selectors.forEach((selector) => {
-		const element = document.querySelector(selector);
-		if (element) {
-			element.remove();
-			console.log(`Element with selector '${selector}' removed.`);
-		} else {
-			console.log(`Element with selector '${selector}' not found.`);
-		}
+	if (!mapElement) {
+		return;
+	}
+
+	await ymaps3.ready;
+
+	const LOCATION: YMapLocationRequest = {
+		center: [45, 55],
+		zoom: 4.5,
+	};
+
+	const {
+		YMap,
+		YMapDefaultSchemeLayer,
+		YMapFeature,
+		YMapDefaultFeaturesLayer,
+	} = ymaps3;
+
+	const map = new YMap(mapElement, { location: LOCATION }, [
+		new YMapDefaultSchemeLayer({}),
+		new YMapDefaultFeaturesLayer({}),
+	]);
+
+	if (!coordinates) {
+		return;
+	}
+
+	const polygonFeature = new YMapFeature({
+		id: 'polygon',
+		geometry: {
+			type: 'Polygon',
+			coordinates: [coordinates],
+		},
+		style: {
+			stroke: [{ width: 1, color: 'rgb(219, 14, 14)' }],
+			fill: 'rgba(126, 30, 30, 0.5)',
+		},
 	});
+
+	map.addChild(polygonFeature);
 }
 
-// Example usage:
-// Call this function when you want to remove the elements
-// removeMapElements();
+/**
+ * Get latitude from search params
+ */
+function getLatitudeFromSearchParams() {
+	const searchParams = new URLSearchParams(window.location.search);
+	const latitude = parseFloat(searchParams?.get('lat') ?? '');
 
-async function takeFullPageSnapshot(elementId = 'root', name = '') {
+	if (isNaN(latitude)) {
+		return null;
+	}
+
+	return latitude;
+}
+
+/**
+ * Initialize map with coordinates from search params
+ */
+async function initMap(latitude: number | null) {
+	let coords: LngLat[] | null = null;
+
 	try {
-		const element = document.querySelector('#map');
-		if (!element) {
-			console.error(`Element with ID '${elementId}' not found.`);
-			return;
+		if (latitude !== null) {
+			coords = await fetchCoords(latitude);
 		}
-		removeMapElements();
-
-		const canvas = await html2canvas(element, {
-			useCORS: true, // Important for cross-origin images
-			allowTaint: true, // May be needed for some external content
-			scrollX: 0, // Ensure we start capturing from the left
-			scrollY: 0, // Ensure we start capturing from the top
-			windowWidth: element.clientWidth, // Capture the full width
-			windowHeight: element.clientHeight, // Capture the full height
-			onrendered: function (canvas) {
-				document.body.appendChild(canvas);
-			},
-		});
-
-		setTimeout(() => {
-			const dataURL = canvas.toDataURL('image/png');
-
-			// Create a download link
-			const link = document.createElement('a');
-			link.href = dataURL;
-			link.download = `magnetic_storm_${name}.png`;
-
-			// Trigger the download
-			document.body.appendChild(link);
-			link.click();
-			document.body.removeChild(link); // Clean up
-		});
-
-		console.log('Full page snapshot taken successfully.');
 	} catch (error) {
-		console.error('Error taking full page snapshot:', error);
+		console.error('There was a problem with the fetch operation:', error);
+		coords = null;
 	}
+
+	renderMap(coords);
 }
 
-// Example usage:
-// Call this function when you want to take the snapshot
-// takeFullPageSnapshot(); // Uses 'root' as default element and 'fullpage-snapshot.png' as default filename
-// takeFullPageSnapshot('my-container', 'my-snapshot.png'); // Example specifying element ID and filename
+function drawLatitudeText(latitude: number) {
+	const latitudeText = document.getElementById('latitude') as HTMLElement;
 
-// This example creates a simple polygon representing the Bermuda Triangle.
-
-function renderMap(name, coords): Promise<void> {
-	return new Promise((resolve, reject) => {
-		const map = new google.maps.Map(document.getElementById('map'), {
-			center: { lat: 60, lng: 49 },
-			zoom: 4.8,
-			mapTypeId: 'terrain',
-			zoomControlOptions: {
-				position: google.maps.ControlPosition.RIGHT_BOTTOM,
-			},
-		});
-
-		// Define the LatLng coordinates for the polygon's path.
-		const triangleCoords = coords.map((coord) => {
-			return { lat: coord[1], lng: coord[0] };
-		});
-
-		// Construct the polygon.
-		const bermudaTriangle = new google.maps.Polygon({
-			paths: triangleCoords,
-			strokeColor: '#FF0000',
-			strokeOpacity: 0.8,
-			strokeWeight: 2,
-			fillColor: '#FF0000',
-			fillOpacity: 0.35,
-		});
-
-		bermudaTriangle.setMap(map);
-
-		// setTimeout(() => {
-		// 	takeFullPageSnapshot('map', name);
-		// 	resolve();
-		// }, 5000);
-	});
-}
-
-async function initMap() {
-	for (let [key, value] of Object.entries(coords)) {
-		await renderMap(key, value);
+	if (!latitudeText) {
+		return;
 	}
+
+	latitudeText.innerText = `Зона активности бури: ${latitude}° геомагнитной широты`;
 }
 
-declare global {
-	interface Window {
-		initMap: () => void;
+function init() {
+	const latitude = getLatitudeFromSearchParams();
+
+	if (latitude) {
+		drawLatitudeText(latitude);
 	}
+
+	initMap(latitude);
 }
-window.initMap = initMap;
-export {};
+
+init();
