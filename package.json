@@ -8,7 +8,7 @@
     "preview": "vite preview",
     "prepublish": "npm run build",
     "build": "tsc && vite build",
-    "publish": "gh-pages -d dist"
+    "deploy": "gh-pages -d dist"
   },
   "devDependencies": {
     "@yandex/ymaps3-types": "^1.0.16076882",
