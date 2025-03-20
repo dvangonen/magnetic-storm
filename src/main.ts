@@ -1,16 +1,19 @@
-import type { LngLat, YMap, YMapLocationRequest } from 'ymaps3';
-import './style.css';
+import type { YMap, YMapLocationRequest } from 'ymaps3';
 import { fetchCoords } from './api/fetchCoords';
+import './style.css';
 
 /**
  * Render map on the page
  */
-function renderMap() {
+async function renderMap() {
 	const mapElement = document.getElementById('map') as HTMLElement;
 
 	if (!mapElement) {
 		throw new Error('Map element not found');
 	}
+
+	// Wait for the ymaps3 module to load
+	await ymaps3.ready;
 
 	const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer } = ymaps3;
 
@@ -32,7 +35,12 @@ function renderMap() {
  * @param map - map to render polygon on
  * @param coordinates - coordinates to render
  */
-function renderCoordsPolygon(map: YMap, coordinates: LngLat[]) {
+async function renderCoords(mapPromise: Promise<YMap>, latitude: number) {
+	const [map, coordinates] = await Promise.all([
+		mapPromise,
+		fetchCoords(latitude),
+	]);
+
 	// If there are no coordinates, do nothing
 	if (coordinates.length === 0) {
 		return;
@@ -83,18 +91,16 @@ function drawLatitudeText(latitude: number): void {
  */
 async function init(): Promise<void> {
 	const latitude = getLatitudeFromSearchParams();
-	let coordsPromise: Promise<LngLat[]> = Promise.resolve([]);
 
 	if (latitude !== null) {
 		drawLatitudeText(latitude);
-		coordsPromise = fetchCoords(latitude);
 	}
 
-	await ymaps3.ready;
-	const map = renderMap();
+	const mapPromise = renderMap();
 
-	const coords = await coordsPromise;
-	renderCoordsPolygon(map, coords);
+	if (latitude !== null) {
+		renderCoords(mapPromise, latitude);
+	}
 }
 
 init();

@@ -5,12 +5,12 @@
 		<link rel="icon" type="image/png" href="/logo.png" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>Геомагнитная буря на карте</title>
-		<script src="%VITE_MAP_API%/maps"></script>
 	</head>
 	<body>
 		<div id="map"></div>
 		<div id="latitude"></div>
 
-		<script type="module" src="/src/main.ts"></script>
+		<script defer src="%VITE_MAP_API%/maps"></script>
+		<script defer type="module" src="/src/main.ts"></script>
 	</body>
 </html>
